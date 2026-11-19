@@ -3,6 +3,9 @@ lexer grammar RuleLanguageLexer;
 RULE    : 'rule';
 WHEN    : 'when';
 THEN    : 'then';
+AND     : 'and';
+OR      : 'or';
+NOT     : 'not';
 
 TRUE    : 'true';
 FALSE   : 'false';
@@ -18,6 +21,8 @@ ASSIGN  : '=';
 DOT     : '.';
 LBRACE  : '{';
 RBRACE  : '}';
+LPAREN  : '(';
+RPAREN  : ')';
 
 NUMBER
     : '-'? [0-9]+ ('.' [0-9]+)?

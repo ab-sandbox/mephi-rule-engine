@@ -60,7 +60,7 @@ class RuleLanguageTest {
 
         assertEquals("\"Free delivery\"", rule.STRING().getText());
 
-        var condition = rule.condition();
+        var condition = getComparison(rule.condition());
 
         assertEquals("order.total", condition.property().getText());
         assertEquals(">=", condition.comparisonOperator().getText());
@@ -109,7 +109,9 @@ class RuleLanguageTest {
                 """);
 
         var program = parseProgram(parser);
-        var condition = program.ruleDeclaration(0).condition();
+        var condition = getComparison(
+                program.ruleDeclaration(0).condition()
+        );
 
         assertEquals(0, parser.getNumberOfSyntaxErrors());
 
@@ -201,11 +203,213 @@ class RuleLanguageTest {
         for (var token : tokens) {
             System.out.printf(
                     "%-15s %-20s %d:%d%n",
-                    vocabulary.getDisplayName(token.getType()),
+                    vocabulary.getSymbolicName(token.getType()),
                     token.getText(),
                     token.getLine(),
                     token.getCharPositionInLine()
             );
         }
+    }
+
+    @Test
+    void shouldParseAndExpression() {
+        var parser = createParser("""
+                rule "Premium discount" {
+                    when customer.age >= 18
+                        and customer.premium == true
+                    then discount = 15
+                }
+                """);
+
+        var program = parseProgram(parser);
+
+        assertEquals(0, parser.getNumberOfSyntaxErrors());
+
+        var expression = program.ruleDeclaration(0)
+                .condition()
+                .orExpression()
+                .andExpression(0);
+
+        assertEquals(2, expression.notExpression().size());
+        assertEquals(1, expression.AND().size());
+    }
+
+    @Test
+    void shouldParseOrExpression() {
+        var parser = createParser("""
+                rule "Free delivery" {
+                    when order.total >= 5000
+                        or customer.premium == true
+                    then delivery = 0
+                }
+                """);
+
+        var program = parseProgram(parser);
+
+        assertEquals(0, parser.getNumberOfSyntaxErrors());
+
+        var expression = program.ruleDeclaration(0)
+                .condition()
+                .orExpression();
+
+        assertEquals(2, expression.andExpression().size());
+        assertEquals(1, expression.OR().size());
+    }
+
+    @Test
+    void shouldParseNotExpression() {
+        var parser = createParser("""
+                rule "Active customer" {
+                    when not customer.blocked == true
+                    then allowed = true
+                }
+                """);
+
+        var program = parseProgram(parser);
+
+        assertEquals(0, parser.getNumberOfSyntaxErrors());
+
+        var expression = program.ruleDeclaration(0)
+                .condition()
+                .orExpression()
+                .andExpression(0)
+                .notExpression(0);
+
+        assertNotNull(expression.NOT());
+        assertNotNull(expression.notExpression());
+
+        assertNotNull(
+                expression.notExpression()
+                        .primaryExpression()
+                        .comparison()
+        );
+    }
+
+    @Test
+    void shouldRespectOperatorPrecedence() {
+        var parser = createParser("""
+                rule "Special discount" {
+                    when customer.premium == true
+                        or customer.age >= 18
+                        and order.total >= 10000
+                    then discount = 20
+                }
+                """);
+
+        var program = parseProgram(parser);
+
+        assertEquals(0, parser.getNumberOfSyntaxErrors());
+
+        var expression = program.ruleDeclaration(0)
+                .condition()
+                .orExpression();
+
+        assertEquals(2, expression.andExpression().size());
+
+        var left = expression.andExpression(0);
+        var right = expression.andExpression(1);
+
+        assertEquals(1, left.notExpression().size());
+        assertEquals(2, right.notExpression().size());
+
+        assertTrue(left.AND().isEmpty());
+        assertEquals(1, right.AND().size());
+    }
+
+    @Test
+    void shouldRespectParentheses() {
+        var parser = createParser("""
+                rule "Special discount" {
+                    when (customer.premium == true
+                        or customer.age >= 18)
+                        and order.total >= 10000
+                    then discount = 20
+                }
+                """);
+
+        var program = parseProgram(parser);
+
+        assertEquals(0, parser.getNumberOfSyntaxErrors());
+
+        var expression = program.ruleDeclaration(0)
+                .condition()
+                .orExpression();
+
+        assertEquals(1, expression.andExpression().size());
+
+        var andExpression = expression.andExpression(0);
+
+        assertEquals(2, andExpression.notExpression().size());
+
+        var grouped = andExpression.notExpression(0)
+                .primaryExpression();
+
+        assertNotNull(grouped.LPAREN());
+        assertNotNull(grouped.RPAREN());
+        assertNotNull(grouped.condition());
+
+        assertEquals(
+                2,
+                grouped.condition()
+                        .orExpression()
+                        .andExpression()
+                        .size()
+        );
+    }
+
+    @Test
+    void shouldParseDoubleNegation() {
+        var parser = createParser("""
+                rule "Double negation" {
+                    when not not customer.premium == true
+                    then discount = 15
+                }
+                """);
+
+        var program = parseProgram(parser);
+
+        assertEquals(0, parser.getNumberOfSyntaxErrors());
+
+        var expression = program.ruleDeclaration(0)
+                .condition()
+                .orExpression()
+                .andExpression(0)
+                .notExpression(0);
+
+        assertNotNull(expression.NOT());
+        assertNotNull(expression.notExpression().NOT());
+
+        assertNotNull(
+                expression.notExpression()
+                        .notExpression()
+                        .primaryExpression()
+                        .comparison()
+        );
+    }
+
+    @Test
+    void shouldRejectUnclosedParenthesis() {
+        var parser = createParser("""
+                rule "Invalid rule" {
+                    when (customer.age >= 18
+                        and customer.premium == true
+                    then discount = 15
+                }
+                """);
+
+        parseProgram(parser);
+
+        assertTrue(parser.getNumberOfSyntaxErrors() > 0);
+    }
+
+    private RuleLanguageParser.ComparisonContext getComparison(
+            RuleLanguageParser.ConditionContext condition) {
+
+        return condition
+                .orExpression()
+                .andExpression(0)
+                .notExpression(0)
+                .primaryExpression()
+                .comparison();
     }
 }

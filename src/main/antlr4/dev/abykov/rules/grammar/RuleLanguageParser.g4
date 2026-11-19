@@ -16,6 +16,28 @@ ruleDeclaration
     ;
 
 condition
+    : orExpression
+    ;
+
+orExpression
+    : andExpression (OR andExpression)*
+    ;
+
+andExpression
+    : notExpression (AND notExpression)*
+    ;
+
+notExpression
+    : NOT notExpression
+    | primaryExpression
+    ;
+
+primaryExpression
+    : LPAREN condition RPAREN
+    | comparison
+    ;
+
+comparison
     : property comparisonOperator literal
     ;
 
