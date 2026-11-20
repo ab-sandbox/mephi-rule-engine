@@ -3,6 +3,7 @@ package dev.abykov.rules.runtime;
 import dev.abykov.rules.ast.Property;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -88,6 +89,68 @@ class EvaluationContextTest {
                 () -> nullableContext.resolve(
                         new Property(List.of("customer", "age"))
                 )
+        );
+    }
+
+    @Test
+    void shouldProtectContextFromExternalChanges() {
+        var source = new HashMap<String, Object>();
+        source.put("age", 25);
+
+        var context = new EvaluationContext(source);
+
+        source.put("age", 17);
+
+        assertEquals(
+                25,
+                context.resolve(new Property(List.of("age")))
+        );
+    }
+
+    @Test
+    void shouldProtectNestedContextFromExternalChanges() {
+        var customer = new HashMap<String, Object>();
+        customer.put("age", 25);
+
+        var context = new EvaluationContext(
+                Map.of("customer", customer)
+        );
+
+        customer.put("age", 17);
+
+        assertEquals(
+                25,
+                context.resolve(
+                        new Property(List.of("customer", "age"))
+                )
+        );
+    }
+
+    @Test
+    void shouldProtectNestedListFromExternalChanges() {
+        var items = new ArrayList<>(List.of("first"));
+
+        var context = new EvaluationContext(
+                Map.of("items", items)
+        );
+
+        items.add("second");
+
+        assertEquals(
+                List.of("first"),
+                context.resolve(new Property(List.of("items")))
+        );
+    }
+
+    @Test
+    void shouldPreserveNullValuesInSnapshot() {
+        var source = new HashMap<String, Object>();
+        source.put("value", null);
+
+        var context = new EvaluationContext(source);
+
+        assertNull(
+                context.resolve(new Property(List.of("value")))
         );
     }
 

@@ -10,7 +10,9 @@ public final class EvaluationContext {
     private final Map<String, Object> data;
 
     public EvaluationContext(Map<String, Object> data) {
-        this.data = Objects.requireNonNull(data);
+        this.data = ContextSnapshot.copy(
+                Objects.requireNonNull(data)
+        );
     }
 
     public Object resolve(Property property) {
