@@ -1,0 +1,81 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+
+  pull_request:
+    branches: [ main ]
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: '21'
+  JAVA_DISTRIBUTION: 'temurin'
+  ARTIFACT_NAME: 'rule-engine'
+
+jobs:
+  build:
+    name: Build and test (${{ matrix.os }})
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Print environment information
+        run: |
+          java -version
+          mvn -version
+
+      - name: Build and test
+        run: mvn --batch-mode --no-transfer-progress clean verify
+
+      - name: Smoke test executable JAR
+        run: java -jar target/rule-engine.jar examples/discount.rules examples/context.json
+
+      - name: Smoke test help command
+        run: java -jar target/rule-engine.jar --help
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ matrix.os }}
+          path: target/surefire-reports/
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload executable JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}-${{ matrix.os }}
+          path: target/rule-engine.jar
+          retention-days: 14
+          if-no-files-found: error
