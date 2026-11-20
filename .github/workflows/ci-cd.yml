@@ -53,3 +53,11 @@ jobs:
 
     with:
       artifact-name: 'rule-engine'
+
+  docker:
+    name: Docker image
+    needs: build
+    uses: ./.github/workflows/docker.yml
+    permissions:
+      contents: read
+      packages: write
