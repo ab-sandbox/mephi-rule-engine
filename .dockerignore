@@ -1,0 +1,7 @@
+**
+
+!Dockerfile
+!target/
+!target/rule-engine.jar
+!examples/
+!examples/**
