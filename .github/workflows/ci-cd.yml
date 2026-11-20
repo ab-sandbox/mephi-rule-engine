@@ -142,7 +142,7 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
 
       - name: Download executable JAR
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: ${{ env.ARTIFACT_NAME }}-ubuntu-latest
           path: distribution
@@ -209,4 +209,54 @@ jobs:
             echo '```text'
             cat "${ARTIFACT_NAME}.zip.sha256"
             echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  release:
+    name: Publish GitHub release
+    needs: distribution
+
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download verified distribution
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ env.ARTIFACT_NAME }}-distribution
+          path: release
+
+      - name: Verify distribution checksum
+        working-directory: release
+        run: |
+          sha256sum -c "${ARTIFACT_NAME}.zip.sha256"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            "release/${ARTIFACT_NAME}.zip" \
+            "release/${ARTIFACT_NAME}.zip.sha256" \
+            --verify-tag \
+            --title "Rule Engine ${GITHUB_REF_NAME}" \
+            --generate-notes
+
+      - name: Generate release summary
+        run: |
+          {
+            echo "## Rule Engine Release"
+            echo ""
+            echo "| Parameter | Value |"
+            echo "|---|---|"
+            echo "| Version | ${GITHUB_REF_NAME} |"
+            echo "| Status | Published |"
+            echo "| Integrity check | Passed |"
+            echo ""
+            echo "[View release](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME})"
           } >> "$GITHUB_STEP_SUMMARY"
