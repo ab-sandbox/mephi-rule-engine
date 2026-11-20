@@ -1,0 +1,122 @@
+name: Build and Test
+
+on:
+  workflow_call:
+    inputs:
+      java-version:
+        required: true
+        type: string
+
+      java-distribution:
+        required: true
+        type: string
+
+      artifact-name:
+        required: true
+        type: string
+
+env:
+  JAVA_VERSION: ${{ inputs.java-version }}
+  JAVA_DISTRIBUTION: ${{ inputs.java-distribution }}
+  ARTIFACT_NAME: ${{ inputs.artifact-name }}
+
+jobs:
+  build:
+    name: Build and test (${{ matrix.os }})
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Java
+        id: setup-java
+        uses: actions/setup-java@v5
+        with:
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Print environment information
+        run: |
+          java -version
+          mvn -version
+
+      - name: Build and test
+        run: mvn --batch-mode --no-transfer-progress clean verify
+
+      - name: Smoke test executable JAR
+        run: java -jar target/rule-engine.jar examples/discount.rules examples/context.json
+
+      - name: Smoke test help command
+        run: java -jar target/rule-engine.jar --help
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-reports-${{ matrix.os }}
+          path: target/surefire-reports/
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: coverage-reports-${{ matrix.os }}
+          path: target/site/jacoco/
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload Checkstyle report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: checkstyle-report-${{ matrix.os }}
+          path: target/checkstyle-result.xml
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload SpotBugs report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: spotbugs-report-${{ matrix.os }}
+          path: target/spotbugsXml.xml
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload executable JAR
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ env.ARTIFACT_NAME }}-${{ matrix.os }}
+          path: target/rule-engine.jar
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Generate build summary
+        if: always()
+        uses: ./.github/actions/build-summary
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          cache-hit: ${{ steps.setup-java.outputs.cache-hit }}
+          build-status: ${{ job.status }}

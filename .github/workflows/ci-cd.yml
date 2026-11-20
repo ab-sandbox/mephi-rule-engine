@@ -17,199 +17,28 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  JAVA_VERSION: '21'
-  JAVA_DISTRIBUTION: 'temurin'
-  ARTIFACT_NAME: 'rule-engine'
-
 jobs:
   build:
-    name: Build and test (${{ matrix.os }})
+    name: Build and test
 
-    runs-on: ${{ matrix.os }}
+    uses: ./.github/workflows/build.yml
 
-    timeout-minutes: 15
-
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - ubuntu-latest
-          - windows-latest
-          - macos-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-
-      - name: Set up Java
-        id: setup-java
-        uses: actions/setup-java@v5
-        with:
-          distribution: ${{ env.JAVA_DISTRIBUTION }}
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: maven
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-
-      - name: Print environment information
-        run: |
-          java -version
-          mvn -version
-
-      - name: Build and test
-        run: mvn --batch-mode --no-transfer-progress clean verify
-
-      - name: Smoke test executable JAR
-        run: java -jar target/rule-engine.jar examples/discount.rules examples/context.json
-
-      - name: Smoke test help command
-        run: java -jar target/rule-engine.jar --help
-
-      - name: Upload test reports
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: test-reports-${{ matrix.os }}
-          path: target/surefire-reports/
-          retention-days: 14
-          if-no-files-found: warn
-
-      - name: Upload coverage reports
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: coverage-reports-${{ matrix.os }}
-          path: target/site/jacoco/
-          retention-days: 14
-          if-no-files-found: warn
-
-      - name: Upload Checkstyle report
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: checkstyle-report-${{ matrix.os }}
-          path: target/checkstyle-result.xml
-          retention-days: 14
-          if-no-files-found: warn
-
-      - name: Upload SpotBugs report
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: spotbugs-report-${{ matrix.os }}
-          path: target/spotbugsXml.xml
-          retention-days: 14
-          if-no-files-found: warn
-
-      - name: Upload executable JAR
-        uses: actions/upload-artifact@v6
-        with:
-          name: ${{ env.ARTIFACT_NAME }}-${{ matrix.os }}
-          path: target/rule-engine.jar
-          retention-days: 14
-          if-no-files-found: error
-
-      - name: Generate build summary
-        if: always()
-        uses: ./.github/actions/build-summary
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          cache-hit: ${{ steps.setup-java.outputs.cache-hit }}
-          build-status: ${{ job.status }}
+    with:
+      java-version: '21'
+      java-distribution: 'temurin'
+      artifact-name: 'rule-engine'
 
   distribution:
     name: Package distribution
+
     needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
+    uses: ./.github/workflows/distribution.yml
 
-      - name: Set up Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: ${{ env.JAVA_DISTRIBUTION }}
-          java-version: ${{ env.JAVA_VERSION }}
-
-      - name: Download executable JAR
-        uses: actions/download-artifact@v7
-        with:
-          name: ${{ env.ARTIFACT_NAME }}-ubuntu-latest
-          path: distribution
-
-      - name: Copy examples
-        run: |
-          cp -R examples distribution/
-
-      - name: Generate SHA-256 checksums
-        working-directory: distribution
-        run: |
-          sha256sum rule-engine.jar > SHA256SUMS
-          sha256sum -c SHA256SUMS
-
-      - name: Create distribution archive
-        working-directory: distribution
-        run: |
-          zip -r "../${ARTIFACT_NAME}.zip" .
-
-      - name: Verify distribution
-        run: |
-          mkdir verification
-          unzip "${ARTIFACT_NAME}.zip" -d verification
-
-          cd verification
-
-          sha256sum -c SHA256SUMS
-
-          java -jar rule-engine.jar \
-            examples/discount.rules \
-            examples/context.json
-
-          java -jar rule-engine.jar --help
-
-      - name: Generate archive checksum
-        run: |
-          sha256sum "${ARTIFACT_NAME}.zip" \
-            > "${ARTIFACT_NAME}.zip.sha256"
-
-      - name: Upload distribution
-        uses: actions/upload-artifact@v6
-        with:
-          name: ${{ env.ARTIFACT_NAME }}-distribution
-          path: |
-            ${{ env.ARTIFACT_NAME }}.zip
-            ${{ env.ARTIFACT_NAME }}.zip.sha256
-          retention-days: 14
-          if-no-files-found: error
-
-      - name: Generate distribution summary
-        run: |
-          {
-            echo "## Rule Engine Distribution"
-            echo ""
-            echo "| Parameter | Value |"
-            echo "|---|---|"
-            echo "| Source platform | Ubuntu |"
-            echo "| Archive | ${ARTIFACT_NAME}.zip |"
-            echo "| Size | $(du -h "${ARTIFACT_NAME}.zip" | cut -f1) |"
-            echo "| Integrity check | Passed |"
-            echo "| Smoke test | Passed |"
-            echo ""
-            echo "### SHA-256"
-            echo '```text'
-            cat "${ARTIFACT_NAME}.zip.sha256"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+    with:
+      java-version: '21'
+      java-distribution: 'temurin'
+      artifact-name: 'rule-engine'
 
   release:
     name: Publish GitHub release
@@ -217,46 +46,10 @@ jobs:
 
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
 
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-
     permissions:
       contents: write
 
-    steps:
-      - name: Download verified distribution
-        uses: actions/download-artifact@v7
-        with:
-          name: ${{ env.ARTIFACT_NAME }}-distribution
-          path: release
+    uses: ./.github/workflows/release.yml
 
-      - name: Verify distribution checksum
-        working-directory: release
-        run: |
-          sha256sum -c "${ARTIFACT_NAME}.zip.sha256"
-
-      - name: Publish GitHub release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          gh release create "${GITHUB_REF_NAME}" \
-            "release/${ARTIFACT_NAME}.zip" \
-            "release/${ARTIFACT_NAME}.zip.sha256" \
-            --verify-tag \
-            --title "Rule Engine ${GITHUB_REF_NAME}" \
-            --generate-notes
-
-      - name: Generate release summary
-        run: |
-          {
-            echo "## Rule Engine Release"
-            echo ""
-            echo "| Parameter | Value |"
-            echo "|---|---|"
-            echo "| Version | ${GITHUB_REF_NAME} |"
-            echo "| Status | Published |"
-            echo "| Integrity check | Passed |"
-            echo ""
-            echo "[View release](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME})"
-          } >> "$GITHUB_STEP_SUMMARY"
+    with:
+      artifact-name: 'rule-engine'
