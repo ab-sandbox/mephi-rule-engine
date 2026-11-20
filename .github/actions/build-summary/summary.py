@@ -6,10 +6,15 @@ from pathlib import Path
 
 SUREFIRE_REPORTS = Path("target/surefire-reports")
 JACOCO_REPORT = Path("target/site/jacoco/jacoco.xml")
+CHECKSTYLE_REPORT = Path("target/checkstyle-result.xml")
+SPOTBUGS_REPORT = Path("target/spotbugsXml.xml")
 ARTIFACT = Path("target/rule-engine.jar")
 
 TEST_COUNTERS = ("tests", "failures", "errors", "skipped")
 COVERAGE_COUNTERS = ("INSTRUCTION", "LINE", "BRANCH")
+
+NOT_AVAILABLE = "N/A"
+BYTES_PER_MIB = 1024 ** 2
 
 
 def read_test_results():
@@ -47,18 +52,41 @@ def read_coverage():
         total = covered + missed
 
         coverage[counter_type] = (
-            f"{covered / total:.2%}" if total else "N/A"
+            f"{covered / total:.2%}"
+            if total else NOT_AVAILABLE
         )
 
     return coverage
 
 
+def read_checkstyle():
+    if not CHECKSTYLE_REPORT.is_file():
+        return None
+
+    root = ET.parse(CHECKSTYLE_REPORT).getroot()
+
+    return len(root.findall(".//error"))
+
+
+def read_spotbugs():
+    if not SPOTBUGS_REPORT.is_file():
+        return None
+
+    root = ET.parse(SPOTBUGS_REPORT).getroot()
+
+    return {
+        "bugs": len(root.findall(".//BugInstance")),
+        "errors": len(root.findall(".//Errors/Error"))
+    }
+
+
 def read_artifact_size():
     if not ARTIFACT.is_file():
-        return "N/A"
+        return NOT_AVAILABLE
 
     size = ARTIFACT.stat().st_size
-    return f"{size / (1024 ** 2):.2f} MiB"
+
+    return f"{size / BYTES_PER_MIB:.2f} MiB"
 
 
 def render_table(rows):
@@ -73,16 +101,48 @@ def render_table(rows):
     return "\n".join(lines)
 
 
+def format_count(value):
+    return NOT_AVAILABLE if value is None else value
+
+
+def render_quality_gates():
+    checkstyle = read_checkstyle()
+    spotbugs = read_spotbugs()
+
+    return render_table([
+        (
+            "Checkstyle violations",
+            format_count(checkstyle)
+        ),
+        (
+            "SpotBugs defects",
+            spotbugs["bugs"] if spotbugs is not None
+            else NOT_AVAILABLE
+        ),
+        (
+            "SpotBugs analysis errors",
+            spotbugs["errors"] if spotbugs is not None
+            else NOT_AVAILABLE
+        )
+    ])
+
+
 def generate_summary():
     sections = [
         "## Rule Engine Build",
         render_table([
-            ("Operating system", os.getenv("RUNNER_OS", "N/A")),
-            ("Architecture", os.getenv("RUNNER_ARCH", "N/A")),
-            ("Java version", os.getenv("BUILD_JAVA_VERSION", "N/A")),
-            ("Maven cache hit", os.getenv("BUILD_CACHE_HIT", "N/A")),
-            ("Build status", os.getenv("BUILD_STATUS", "N/A")),
-            ("Commit", os.getenv("GITHUB_SHA", "N/A")),
+            ("Operating system",
+             os.getenv("RUNNER_OS", NOT_AVAILABLE)),
+            ("Architecture",
+             os.getenv("RUNNER_ARCH", NOT_AVAILABLE)),
+            ("Java version",
+             os.getenv("BUILD_JAVA_VERSION", NOT_AVAILABLE)),
+            ("Maven cache hit",
+             os.getenv("BUILD_CACHE_HIT", NOT_AVAILABLE)),
+            ("Build status",
+             os.getenv("BUILD_STATUS", NOT_AVAILABLE)),
+            ("Commit",
+             os.getenv("GITHUB_SHA", NOT_AVAILABLE)),
             ("Artifact size", read_artifact_size())
         ])
     ]
@@ -107,9 +167,13 @@ def generate_summary():
         sections.append("Coverage report is not available.")
     else:
         sections.append(render_table([
-            (name.capitalize(), coverage.get(name, "N/A"))
+            (name.capitalize(),
+             coverage.get(name, NOT_AVAILABLE))
             for name in COVERAGE_COUNTERS
         ]))
+
+    sections.append("## Quality Gates")
+    sections.append(render_quality_gates())
 
     return "\n\n".join(sections)
 
