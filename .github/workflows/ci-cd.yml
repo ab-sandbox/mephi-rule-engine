@@ -75,6 +75,15 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
 
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: coverage-reports-${{ matrix.os }}
+          path: target/site/jacoco/
+          retention-days: 14
+          if-no-files-found: warn
+
       - name: Upload executable JAR
         uses: actions/upload-artifact@v6
         with:
