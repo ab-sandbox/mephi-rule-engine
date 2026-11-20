@@ -89,6 +89,15 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
 
+      - name: Upload Checkstyle report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: checkstyle-report-${{ matrix.os }}
+          path: target/checkstyle-result.xml
+          retention-days: 14
+          if-no-files-found: warn
+
       - name: Upload executable JAR
         uses: actions/upload-artifact@v6
         with:
