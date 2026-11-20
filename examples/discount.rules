@@ -1,0 +1,30 @@
+// Customer discount policy
+
+rule "Standard discount" {
+    when customer.age >= 18
+    then discount = 5
+}
+
+rule "Premium discount" {
+    when customer.age >= 18
+        and customer.premium == true
+    then discount = 15
+}
+
+rule "Free delivery" {
+    when order.total >= 5000
+    then delivery = 0
+}
+
+rule "Customer status" {
+    when customer.premium == true
+        and not customer.blocked == true
+    then status = "VIP"
+}
+
+rule "Order approval" {
+    when not customer.blocked == true
+        and (customer.premium == true
+            or order.total >= 10000)
+    then approved = true
+}

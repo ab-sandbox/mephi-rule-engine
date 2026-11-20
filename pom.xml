@@ -18,6 +18,9 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <antlr.version>4.13.2</antlr.version>
+
+        <jackson.version>2.18.3</jackson.version>
+
         <junit.version>5.11.4</junit.version>
         <maven.compiler.version>3.13.0</maven.compiler.version>
         <maven.surefire.version>3.5.2</maven.surefire.version>
@@ -28,6 +31,12 @@
             <groupId>org.antlr</groupId>
             <artifactId>antlr4-runtime</artifactId>
             <version>${antlr.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
         </dependency>
 
         <dependency>

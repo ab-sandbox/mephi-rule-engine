@@ -1,0 +1,13 @@
+{
+  "customer": {
+    "age": 25,
+    "premium": true,
+    "blocked": false,
+    "address": {
+      "city": "Moscow"
+    }
+  },
+  "order": {
+    "total": 15000.99
+  }
+}
