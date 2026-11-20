@@ -52,6 +52,11 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           cache: maven
 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
       - name: Print environment information
         run: |
           java -version
@@ -94,20 +99,8 @@ jobs:
 
       - name: Generate build summary
         if: always()
-        shell: bash
-        env:
-          BUILD_STATUS: ${{ job.status }}
-          CACHE_HIT: ${{ steps.setup-java.outputs.cache-hit }}
-        run: |
-          {
-            echo "## Rule Engine Build"
-            echo ""
-            echo "| Parameter | Value |"
-            echo "|---|---|"
-            echo "| Operating system | $RUNNER_OS |"
-            echo "| Architecture | $RUNNER_ARCH |"
-            echo "| Java version | $JAVA_VERSION |"
-            echo "| Maven cache hit | $CACHE_HIT |"
-            echo "| Build status | $BUILD_STATUS |"
-            echo "| Commit | $GITHUB_SHA |"
-          } >> "$GITHUB_STEP_SUMMARY"
+        uses: ./.github/actions/build-summary
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          cache-hit: ${{ steps.setup-java.outputs.cache-hit }}
+          build-status: ${{ job.status }}

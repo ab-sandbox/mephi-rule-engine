@@ -1,0 +1,29 @@
+name: Build Summary
+
+description: Generate Maven build and quality reports
+
+inputs:
+  java-version:
+    description: Java version used for the build
+    required: true
+
+  cache-hit:
+    description: Maven dependency cache hit
+    required: false
+    default: 'false'
+
+  build-status:
+    description: Current build status
+    required: true
+
+runs:
+  using: composite
+
+  steps:
+    - name: Generate summary
+      shell: bash
+      env:
+        BUILD_JAVA_VERSION: ${{ inputs.java-version }}
+        BUILD_CACHE_HIT: ${{ inputs.cache-hit }}
+        BUILD_STATUS: ${{ inputs.build-status }}
+      run: python "$GITHUB_ACTION_PATH/summary.py"
