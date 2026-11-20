@@ -98,6 +98,15 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
 
+      - name: Upload SpotBugs report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: spotbugs-report-${{ matrix.os }}
+          path: target/spotbugsXml.xml
+          retention-days: 14
+          if-no-files-found: warn
+
       - name: Upload executable JAR
         uses: actions/upload-artifact@v6
         with:

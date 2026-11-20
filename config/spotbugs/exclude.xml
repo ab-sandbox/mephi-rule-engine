@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<FindBugsFilter>
+
+    <!-- ANTLR-generated classes -->
+    <Match>
+        <Package name="dev.abykov.rules.grammar"/>
+    </Match>
+
+</FindBugsFilter>

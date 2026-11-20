@@ -28,6 +28,8 @@
         <maven.checkstyle.version>3.6.0</maven.checkstyle.version>
         <checkstyle.version>10.21.4</checkstyle.version>
 
+        <spotbugs.maven.version>4.9.3.0</spotbugs.maven.version>
+
         <junit.version>5.11.4</junit.version>
         <maven.compiler.version>3.13.0</maven.compiler.version>
         <maven.surefire.version>3.5.2</maven.surefire.version>
@@ -218,6 +220,32 @@
                     <execution>
                         <id>check-code-style</id>
                         <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>${spotbugs.maven.version}</version>
+
+                <configuration>
+                    <effort>Max</effort>
+                    <threshold>Medium</threshold>
+
+                    <xmlOutput>true</xmlOutput>
+                    <failOnError>true</failOnError>
+
+                    <excludeFilterFile>config/spotbugs/exclude.xml</excludeFilterFile>
+                </configuration>
+
+                <executions>
+                    <execution>
+                        <id>static-analysis</id>
+                        <phase>verify</phase>
                         <goals>
                             <goal>check</goal>
                         </goals>
